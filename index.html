@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Montagebericht</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e8a317'/%3E%3Cpath d='M8 22V10h4l4 6 4-6h4v12h-3.5v-6.5L16 20l-4.5-4.5V22z' fill='%23161a20'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <!-- Startbildschirm -->
+  <section id="start" class="start" hidden>
+    <div class="start-inner">
+      <header class="start-head">
+        <div class="brand"><span class="brand-mark">M</span><div><h1>Montagebericht</h1><p>Fotodokumentation aus Ordnerstrukturen – automatisch geordnet, als Word-Bericht exportiert.</p></div></div>
+      </header>
+
+      <div class="start-main">
+        <button id="btnPickFolder" class="btn-hero">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5m-2.5-2.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span><strong>Projektordner auswählen und analysieren</strong><small>Alle Unterordner werden automatisch eingelesen</small></span>
+        </button>
+        <div class="start-alt">
+          <button id="btnPickZip" class="btn ghost">ZIP-Archiv importieren</button>
+          <button id="btnRestore" class="btn ghost">Sicherung wiederherstellen</button>
+          <span class="muted">oder Ordner einfach in dieses Fenster ziehen</span>
+        </div>
+        <div id="capNotice" class="notice"></div>
+      </div>
+
+      <section class="projects">
+        <div class="section-head"><h2>Gespeicherte Projekte</h2><span id="storageInfo" class="muted small"></span></div>
+        <div id="projectList" class="project-list"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- Arbeitsbereich -->
+  <section id="workspace" class="workspace" hidden>
+    <header class="topbar">
+      <button id="btnHome" class="icon-btn" title="Zur Projektübersicht"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+      <div class="project-title">
+        <input id="projectName" class="title-input" spellcheck="false" aria-label="Projektname">
+        <span id="projectSub" class="muted small"></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="btnRelink" class="btn warn" hidden>Ordner erneut verbinden</button>
+        <button id="btnRescan" class="btn ghost" title="Ordner erneut einlesen – Bearbeitungen bleiben erhalten">Neu einlesen</button>
+        <button id="btnBackup" class="btn ghost">Sicherung</button>
+        <button id="btnSettings" class="btn ghost">Erkennungsregeln</button>
+        <button id="btnReport" class="btn primary">Word-Bericht erstellen</button>
+      </div>
+    </header>
+
+    <div class="panes">
+      <aside class="pane tree-pane">
+        <div class="pane-head">
+          <input id="treeFilter" type="search" placeholder="Ordner filtern …">
+          <div class="tree-tools">
+            <button id="btnExpandAll" class="icon-btn sm" title="Alle aufklappen">+</button>
+            <button id="btnCollapseAll" class="icon-btn sm" title="Alle zuklappen">−</button>
+          </div>
+        </div>
+        <div id="tree" class="tree" role="tree"></div>
+        <div class="tree-legend small muted">
+          <span><i class="dot dp"></i>Dokupunkt</span><span><i class="chip vn">V|N</i>Vergleich</span><span><i class="dot empty"></i>leer</span>
+        </div>
+      </aside>
+
+      <main class="pane center-pane">
+        <div class="toolbar">
+          <div class="seg" role="tablist">
+            <button class="seg-btn active" data-view="gallery">Galerie</button>
+            <button class="seg-btn" data-view="compare">Vorher / Nachher</button>
+          </div>
+          <input id="search" type="search" placeholder="Dateiname, Ordner oder Pfad suchen …">
+          <label class="check"><input type="checkbox" id="includeSub"> Unterordner</label>
+          <div class="toolbar-spacer"></div>
+          <input id="tileSize" type="range" min="110" max="320" value="180" title="Kachelgröße">
+        </div>
+        <div class="toolbar filters" id="filterBar">
+          <select id="fType" title="Dateityp">
+            <option value="all">Alle Typen</option><option value="jpg">JPEG</option><option value="png">PNG</option><option value="webp">WebP</option><option value="heic">HEIC/HEIF</option><option value="tif">TIFF</option><option value="other">Andere</option>
+          </select>
+          <select id="fPhase" title="Vorher/Nachher">
+            <option value="all">Vorher & Nachher: alle</option><option value="before">Nur Vorher</option><option value="after">Nur Nachher</option><option value="nopartner">Ohne Gegenstück</option><option value="nophase">Keiner Gruppe zugeordnet</option>
+          </select>
+          <select id="fDocPoint" title="Dokumentationspunkt"><option value="all">Alle Dokumentationspunkte</option></select>
+          <select id="fMark" title="Status / Markierung">
+            <option value="all">Alle Bilder</option><option value="report">Für Bericht ausgewählt</option><option value="notreport">Nicht im Bericht</option><option value="marked">Markiert / Stern</option><option value="edited">Bearbeitet</option><option value="problem">Fehler / fehlt / nicht unterstützt</option>
+          </select>
+          <select id="sortBy" title="Sortierung">
+            <option value="original">Ursprüngliche Reihenfolge</option><option value="name">Dateiname</option><option value="date">Aufnahmedatum</option><option value="size">Dateigröße</option><option value="dims">Bildabmessungen</option><option value="type">Dateityp</option>
+          </select>
+          <button id="sortDir" class="icon-btn sm" title="Richtung umkehren">↑</button>
+          <button id="btnResetSort" class="btn ghost sm" title="Ursprüngliche Sortierung und Filter wiederherstellen">Zurücksetzen</button>
+          <span id="resultInfo" class="muted small"></span>
+        </div>
+        <div id="scopeBar" class="scope-bar"></div>
+        <div id="gallery" class="gallery" tabindex="0"><div id="gallerySpacer" class="gallery-spacer"></div></div>
+        <div id="compare" class="compare" hidden></div>
+      </main>
+
+      <aside class="pane details-pane" id="details"></aside>
+    </div>
+
+    <footer class="statusbar">
+      <span id="statusLeft"></span>
+      <span id="statusProgress" class="progress-inline" hidden><span class="bar"><i></i></span><span class="txt"></span></span>
+      <span id="statusRight" class="muted"></span>
+    </footer>
+  </section>
+
+  <div id="dropOverlay" class="drop-overlay" hidden><div>Ordner oder ZIP hier ablegen</div></div>
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toasts"></div>
+
+  <input id="inpFolder" type="file" webkitdirectory directory multiple hidden>
+  <input id="inpZip" type="file" accept=".zip,application/zip" hidden>
+  <input id="inpBackup" type="file" accept=".zip,.json" hidden>
+
+  <noscript>Diese Anwendung benötigt JavaScript.</noscript>
+  <!-- Klassische Skripte (keine ES-Module), damit index.html per Doppelklick (file://) funktioniert. Reihenfolge beachten. -->
+  <script src="js/util.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/analyze.js"></script>
+  <script src="js/imaging.js"></script>
+  <script src="js/project.js"></script>
+  <script src="js/thumbs.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/backup.js"></script>
+  <script src="js/ui/dialogs.js"></script>
+  <script src="js/ui/tree.js"></script>
+  <script src="js/ui/gallery.js"></script>
+  <script src="js/ui/viewer.js"></script>
+  <script src="js/ui/editor.js"></script>
+  <script src="js/ui/compare.js"></script>
+  <script src="js/ui/details.js"></script>
+  <script src="js/ui/settings.js"></script>
+  <script src="js/ui/report-dialog.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
