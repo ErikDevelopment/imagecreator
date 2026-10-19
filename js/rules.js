@@ -24,7 +24,7 @@ const DEFAULT_RULES = [
   { id: 'r-before-1', label: 'Vorher (eindeutig)', pattern: '^(vorher|before|ist zustand|istzustand)$', role: 'before', confidence: 'sicher', enabled: true },
   { id: 'r-before-2', label: 'Vorher (Kurzform)', pattern: '^(vor|zuvor|ausgangszustand|alt)$', role: 'before', confidence: 'wahrscheinlich', enabled: true },
   { id: 'r-before-3', label: 'Bestand (mehrdeutig)', pattern: '^(bestand|bestandsaufnahme)$', role: 'before', confidence: 'unklar', enabled: true },
-  { id: 'r-after-1', label: 'Nachher (eindeutig, inkl. Schreibvariante „Nacher“)', pattern: '^(nachher|nacher|nachher zustand|after)$', role: 'after', confidence: 'sicher', enabled: true },
+  { id: 'r-after-1', label: 'Nachher (eindeutig, inkl. Tippfehler-Variante)', pattern: '^(nachher|nacher|nachher zustand|after)$', role: 'after', confidence: 'sicher', enabled: true },
   { id: 'r-after-2', label: 'Nachher (Kurzform)', pattern: '^(nach|danach|neu)$', role: 'after', confidence: 'wahrscheinlich', enabled: true },
   { id: 'r-after-3', label: 'Fertig (mehrdeutig)', pattern: '^(fertig|fertigstellung|ergebnis|erledigt)$', role: 'after', confidence: 'unklar', enabled: true },
   { id: 'r-side', label: 'Räumliche Unterteilung', pattern: '^(links|rechts|oben|unten|mitte|vorne|vorn|hinten|innen|aussen|außen|left|right|top|bottom|front|back)$', role: 'side', confidence: 'sicher', enabled: true },

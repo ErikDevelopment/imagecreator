@@ -19,11 +19,11 @@ Empfohlen ist **Google Chrome oder Microsoft Edge**. Obwohl die App im Internet 
 
 ## Wie die Ordnerstruktur verstanden wird
 
-- Jeder Ordner wird über seinen **vollständigen relativen Pfad** identifiziert. `Projekt_A/J03/Vorher`, `Projekt_A/J04/Vorher` und `Projekt_B/J03/Vorher` bleiben getrennt.
+- Jeder Ordner wird über seinen **vollständigen relativen Pfad** identifiziert. `Projekt_A/Punkt_1/Vorher`, `Projekt_A/Punkt_2/Vorher` und `Projekt_B/Punkt_1/Vorher` bleiben getrennt.
 - Die Reihenfolge wird beim ersten Einlesen festgelegt (natürliche Sortierung wie im Windows-Explorer: `Bild2` vor `Bild10`) und gespeichert. Sie lässt sich per Drag & Drop oder ↑/↓ ändern und jederzeit zurücksetzen.
 - **Unterordner mit Bedeutung** werden über bearbeitbare Regeln erkannt (Menü *Erkennungsregeln*):
   - Vorher: `Vorher`, `Before`, `Ist-Zustand` (sicher) · `Vor`, `Ausgangszustand` (wahrscheinlich) · `Bestand` (unklar)
-  - Nachher: `Nachher`, `Nacher`, `After` (sicher) · `Nach`, `Neu` (wahrscheinlich) · `Fertig`, `Fertigstellung` (unklar)
+  - Nachher: `Nachher`, `After` (sicher, inkl. gängiger Tippfehler) · `Nach`, `Neu` (wahrscheinlich) · `Fertig`, `Fertigstellung` (unklar)
   - Räumlich: `Links`, `Rechts`, `Oben`, `Unten` … · Perspektive: `Übersicht`, `Details` …
   - Vor dem Vergleich werden Namen normalisiert: `01_Vorher`, `Vorher 2`, `VORHER` → `vorher`.
 - **Sicherheitsstufen:** Vergleiche mit „sicher“/„wahrscheinlich“ sind automatisch aktiv. „Unklare“ Treffer werden angezeigt, aber erst nach Bestätigung im Bericht als Vergleich verwendet. Ein „unklarer“ Ordner ohne passendes Gegenstück oder mit eigenen Unterordnern bleibt ein normaler Ordner.

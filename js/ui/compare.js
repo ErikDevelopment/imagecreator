@@ -49,7 +49,7 @@ function createCompareView(container, { getModel, saveCompare, openPair, openIma
     container.append(head);
     if (!hosts.length) {
       container.append(el('div', { class: 'empty-state', html: `<h3>Keine Vorher/Nachher-Gruppe in diesem Bereich</h3>
-        <p>Eine Gruppe entsteht automatisch, wenn ein Ordner Unterordner wie <b>Vorher</b> und <b>Nacher/Nachher</b> enthält.
+        <p>Eine Gruppe entsteht automatisch, wenn ein Ordner Unterordner wie <b>Vorher</b> und <b>Nachher</b> enthält.
         Abweichende Namen können in den <b>Erkennungsregeln</b> ergänzt oder je Ordner in den Ordnerdetails (rechts) als Vorher/Nachher festgelegt werden.</p>` }));
       return;
     }

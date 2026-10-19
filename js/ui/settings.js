@@ -10,7 +10,7 @@ const { DEFAULT_RULES, ROLES, CONFIDENCE, classifyName, normalizeName, validateR
 async function openRulesDialog(currentRules, general) {
   let rules = structuredClone(currentRules);
   const list = el('div', { class: 'rules' });
-  const testInp = el('input', { type: 'text', placeholder: 'Ordnernamen testen, z. B. „02 Nacher“', class: 'full' });
+  const testInp = el('input', { type: 'text', placeholder: 'Ordnernamen testen, z. B. „02 Nachher“', class: 'full' });
   const testOut = el('div', { class: 'small rule-test' });
   const autoSel = el('input', { type: 'checkbox', checked: general.autoSelect !== false });
 
