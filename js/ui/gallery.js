@@ -37,7 +37,12 @@ function createGallery(scroller, spacer, handlers) {
     spacer.style.height = total + 'px';
   }
 
-  function schedule() { cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
+  // Kacheln werden nach Schlüssel wiederverwendet: beim Scrollen entstehen nur neu sichtbare Kacheln,
+  // bereits vorhandene bleiben unangetastet. Ein vollständiger Neuaufbau nur nach Daten-/Auswahl-/Layoutänderung.
+  const nodes = new Map();   // Schlüssel ('t:'+id bzw. 'h:'+Gruppe) -> Element
+  let dirty = true;
+  const tpl = document.createElement('template');
+  function schedule(full) { if (full) dirty = true; cancelAnimationFrame(raf); raf = requestAnimationFrame(draw); }
 
   function draw() {
     const top = scroller.scrollTop, bottom = top + scroller.clientHeight;
@@ -45,29 +50,40 @@ function createGallery(scroller, spacer, handlers) {
     // binäre Suche erste sichtbare Zeile
     let lo = 0, hi = rows.length - 1, first = rows.length;
     while (lo <= hi) { const m = (lo + hi) >> 1; if (rows[m].top + rows[m].h >= top - over) { first = m; hi = m - 1; } else lo = m + 1; }
-    const html = [];
-    const visibleItems = [];
+    const needed = new Set();
+    const fresh = [];
     const tileW = tile;
+    const place = (key, makeHtml, im) => {
+      needed.add(key);
+      const old = nodes.get(key);
+      if (old && !dirty) return;
+      tpl.innerHTML = makeHtml();
+      const n = tpl.content.firstElementChild;
+      if (old) old.replaceWith(n); else spacer.append(n);
+      nodes.set(key, n);
+      if (im) fresh.push(im);
+    };
     for (let r = first; r < rows.length && rows[r].top <= bottom + over; r++) {
       const row = rows[r];
       if (row.type === 'h') {
         const g = row.group;
-        html.push(`<div class="g-head" style="top:${row.top}px" data-group="${escapeHtml(g.key)}"><span class="g-title">${escapeHtml(g.title)}</span>${g.sub ? `<span class="g-sub">${escapeHtml(g.sub)}</span>` : ''}<span class="g-count">${g.items.length}</span></div>`);
+        place('h:' + g.key + ':' + row.top, () => `<div class="g-head" style="top:${row.top}px" data-group="${escapeHtml(g.key)}"><span class="g-title">${escapeHtml(g.title)}</span>${g.sub ? `<span class="g-sub">${escapeHtml(g.sub)}</span>` : ''}<span class="g-count">${g.items.length}</span></div>`);
       } else {
         row.items.forEach((im, k) => {
           const x = PAD + k * (tileW + GAP);
-          html.push(tileHtml(im, x, row.top, tileW));
-          visibleItems.push(im);
+          place('t:' + im.id, () => tileHtml(im, x, row.top, tileW), im);
         });
       }
     }
-    spacer.innerHTML = html.join('');
-    bumpPriority(visibleItems);
-    // Vorschaubilder anfordern
-    for (const im of visibleItems) {
+    for (const [k, n] of nodes) if (!needed.has(k)) { n.remove(); nodes.delete(k); }
+    dirty = false;
+    if (!fresh.length) return;
+    bumpPriority(fresh);
+    // Vorschaubilder für neu erzeugte Kacheln anfordern
+    for (const im of fresh) {
       if (cachedThumb(im) || PROBLEM.has(im.status)) continue;
       requestThumb(im, url => {
-        const node = spacer.querySelector(`.tile[data-id="${im.id}"] .thumb`);
+        const node = nodes.get('t:' + im.id)?.querySelector('.thumb');
         if (!node) return;
         if (url) { node.style.backgroundImage = `url("${url}")`; node.classList.remove('loading'); }
         else node.classList.add('nothumb');
@@ -104,8 +120,8 @@ function createGallery(scroller, spacer, handlers) {
     return 'Fehler beim Lesen';
   }
 
-  scroller.addEventListener('scroll', schedule, { passive: true });
-  new ResizeObserver(() => { const c = cols; layout(); if (c !== cols || true) schedule(); }).observe(scroller);
+  scroller.addEventListener('scroll', () => schedule(false), { passive: true });
+  new ResizeObserver(() => { layout(); schedule(true); }).observe(scroller);
 
   // ---- Interaktion ----
   scroller.addEventListener('click', e => {
@@ -212,11 +228,11 @@ function createGallery(scroller, spacer, handlers) {
       indexOf = new Map(flat.map((im, i) => [im.id, i]));
       ctx = newCtx;
       if (!keepScroll) scroller.scrollTop = 0;
-      layout(); schedule();
+      layout(); schedule(true);
     },
-    setContext(newCtx) { ctx = newCtx; schedule(); },
-    setTileSize(px) { tile = px; layout(); schedule(); },
-    refresh() { schedule(); },
+    setContext(newCtx) { ctx = newCtx; schedule(true); },
+    setTileSize(px) { tile = px; layout(); schedule(true); },
+    refresh() { schedule(true); },
     scrollToId,
     get order() { return flat; },
   };

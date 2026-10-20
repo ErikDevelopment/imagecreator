@@ -11,6 +11,8 @@ const { state, saveProject, filesAvailable } = MB['project'];
 async function openReportDialog(model, scopePath) {
   const p = state.project;
   const s = { ...p.report };
+  if (s.showFileComments === undefined) s.showFileComments = true;   // ältere Projekte
+  if (s.captionVersion !== 2) { s.caption = 'top'; s.captionVersion = 2; }   // neue Standard-Beschriftung
   const f = (key, label, type = 'text', extra = {}) => {
     const inp = type === 'textarea' ? el('textarea', { rows: 3, ...extra }) : el('input', { type, ...extra });
     inp.value = s[key] ?? '';
@@ -63,6 +65,8 @@ async function openReportDialog(model, scopePath) {
     walk(o.root);
     outline.innerHTML = lines.join('');
     outlineInfo.textContent = `${o.imageCount} Abbildungen werden exportiert.`;
+    // Sehr große Berichte belasten den Arbeitsspeicher (z. B. MacBook Air) → kompakte Qualität empfehlen
+    if (o.imageCount > 250 && s.quality !== 'kompakt') outlineInfo.innerHTML += ` <span class="warn-t">Bei so vielen Bildern „Bildqualität: Kompakt“ wählen – kleinere Datei, weniger Arbeitsspeicher.</span>`;
   }
   renderOutline();
 
@@ -80,7 +84,7 @@ async function openReportDialog(model, scopePath) {
         el('h4', { text: 'Darstellung' }),
         el('div', { class: 'row2' },
           sel('perRow', 'Bilder pro Zeile', [['1', '1 (groß)'], ['2', '2'], ['3', '3 (kompakt)']]),
-          sel('caption', 'Bildunterschrift', [['filename', 'Dateiname'], ['caption', 'Beschriftung (sonst Dateiname)'], ['both', 'Beschriftung + Dateiname'], ['none', 'keine']])),
+          sel('caption', 'Bildunterschrift', [['top', 'Bild 1: Ordner / Unterordner (fortlaufend)'], ['filename', 'Dateiname'], ['caption', 'Beschriftung (sonst Dateiname)'], ['both', 'Beschriftung + Dateiname'], ['none', 'keine']])),
         el('div', { class: 'row2' },
           sel('quality', 'Bildqualität', [['kompakt', 'Kompakt (kleine Datei)'], ['standard', 'Standard'], ['hoch', 'Hoch (große Datei)']]),
           sel('pageOrientation', 'Seitenformat', [['portrait', 'A4 Hochformat'], ['landscape', 'A4 Querformat']])),
@@ -88,11 +92,19 @@ async function openReportDialog(model, scopePath) {
         chk('onlySelected', 'Nur für den Bericht ausgewählte Bilder'), chk('skipEmpty', 'Leere Ordner auslassen'),
         chk('showPath', 'Ordnerpfad unter Überschrift anzeigen'), chk('showOriginalName', 'Originalordnername anzeigen, wenn Überschrift geändert wurde'),
         chk('includeImageNotes', 'Interne Bildnotizen unter Bildern ausgeben'),
+        chk('showFileComments', 'Kommentare aus .txt-Dateien unter den Überschriften'),
       ),
       el('div', { class: 'rd-outline' },
         el('label', { class: 'field' }, el('span', { text: 'Umfang' }), scopeSel),
         el('h4', { text: 'Gliederung (aus der Ordnerstruktur)' }), outlineInfo, outline,
         el('p', { class: 'small muted', text: 'Vorher/Nachher-Gruppen erscheinen als zweispaltige Tabelle. Die Darstellung pro Gruppe (paarweise, gegenübergestellt oder getrennt) wird in der Vorher/Nachher-Ansicht festgelegt.' }))));
+  const ck = MB['checks'].runChecks(model, p);
+  if (ck.missing) {
+    const n = el('div', { class: 'notice warn ck-notice' },
+      el('span', { html: `<b>⚠ ${ck.missing} leere${ck.missing > 1 ? '' : 'r'} Ordner:</b> ` + escapeHtml(ck.active.filter(i => i.level === 'fehlt').slice(0, 5).map(i => i.path).join(' · ')) + (ck.missing > 5 ? ' …' : '') }),
+      el('button', { class: 'btn xs ghost', text: 'Jetzt prüfen', onclick: () => { body.closest('.modal')?.close?.(null); window.dispatchEvent(new Event('mb:show-checks')); } }));
+    body.prepend(n);
+  }
   if (!avail) body.prepend(el('div', { class: 'notice warn', text: 'Die Originalbilder sind derzeit nicht erreichbar. Bitte zuerst „Ordner erneut verbinden“ – sonst enthält der Bericht Platzhalter statt Bildern.' }));
 
   const res = await modal({ title: 'Word-Bericht erstellen', body, wide: true, buttons: [{ label: 'Abbrechen', value: null, class: 'ghost' }, { label: 'Einstellungen speichern', value: 'save', class: 'ghost' }, { label: 'DOCX erzeugen', value: 'go', class: 'primary' }] });

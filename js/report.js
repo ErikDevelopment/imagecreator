@@ -4,7 +4,7 @@
 const MB = (window.MB = window.MB || {});
 const { loadDocx } = MB['util'];
 const { getFile } = MB['project'];
-const { decodeFile, renderEdited, canvasToBlob } = MB['imaging'];
+const { decodeFile, renderEdited, canvasToBlob, hasEdits, releaseSource } = MB['imaging'];
 // Erzeugung des Word-Montageberichts (.docx) mit der Bibliothek "docx".
 // Kapitelstruktur = Ordnerstruktur. Überschriften = Original-Ordnernamen (oder bewusst gesetzter Berichtstitel).
 
@@ -25,8 +25,9 @@ function buildOutline(model, settings, scopePath = '') {
     const info = model.info.get(path);
     const f = info.folder;
     if (!f.includeInReport) return null;
-    const node = { path, level, title: (f.reportTitle && f.reportTitle.trim()) || f.name, original: f.name, note: f.note, kind: info.kind, role: info.role, images: [], compare: null, children: [] };
+    const node = { path, level, title: (f.reportTitle && f.reportTitle.trim()) || f.name, original: f.name, note: f.note, comments: [], kind: info.kind, role: info.role, images: [], compare: null, children: [] };
     node.images = (model.imagesByFolder.get(path) || []).filter(usable);
+    if (s.showFileComments !== false) node.comments.push(...(f.fileComments || []));
     const consumed = new Set();
     const g = info.compare;
     if (g && g.enabled && g.mode !== 'separate') {
@@ -34,6 +35,8 @@ function buildOutline(model, settings, scopePath = '') {
       if (rowsUse.length) node.compare = { mode: g.mode, rows: rowsUse, before: rowsUse.map(r => r.b).filter(Boolean), after: rowsUse.map(r => r.a).filter(Boolean) };
       for (const p of [...g.beforeFolders, ...g.afterFolders]) {
         consumed.add(p);
+        // Kommentare der Vorher/Nachher-Ordner beim Dokupunkt mit Ordnernamen ausgeben
+        for (const c of model.info.get(p).folder.fileComments || []) node.comments.push({ ...c, prefix: model.info.get(p).folder.name });
         // eventuelle Unterordner der Vorher/Nachher-Ordner trotzdem ausgeben
         for (const c of model.info.get(p).children) node.children.push({ deferred: c.path });
       }
@@ -41,7 +44,8 @@ function buildOutline(model, settings, scopePath = '') {
     for (const c of info.children) if (!consumed.has(c.path)) node.children.push({ deferred: c.path });
     node.children = node.children.map(d => visit(d.deferred, level + 1)).filter(Boolean);
     node.count = node.images.length + (node.compare ? node.compare.before.length + node.compare.after.length : 0) + node.children.reduce((a, c) => a + c.count, 0);
-    if (s.skipEmpty && node.count === 0 && !(node.note && node.note.trim())) return null;
+    if (s.showFileComments === false) node.comments = [];
+    if (s.skipEmpty && node.count === 0 && !(node.note && node.note.trim()) && !node.comments.length) return null;
     return node;
   }
   const root = visit(scopePath, 0);
@@ -75,26 +79,47 @@ async function generateReport(model, settings, scopePath, onProgress) {
   const warnings = [];
   let done = 0, figNo = 0;
 
+  // Bildvorbereitung: parallel im Worker-Pool (ohne Bearbeitungen) bzw. im Hauptprogramm (mit Bearbeitungen).
+  // Alle Bilder werden vorab angestoßen; imageBlock() wartet nur noch auf das jeweilige Ergebnis.
+  const thumbs = MB['thumbs'];
   const prepCache = new Map();
-  async function prep(im) {
-    if (prepCache.has(im.id)) return prepCache.get(im.id);
-    let r;
+  async function prepOne(im) {
     try {
       const file = await getFile(im);
-      const bmp = await decodeFile(file, im.name);
-      const c = renderEdited(bmp, im.edits, { maxDim, background: '#ffffff' });
-      bmp.close?.();
+      if (!hasEdits(im.edits)) {
+        const r = await thumbs.renderForReport(file, maxDim, 0.86);
+        if (r) return r;
+      }
+      // Hauptprogramm: bei Zuschnitt volle Auflösung, sonst direkt verkleinert dekodieren
+      const src = await decodeFile(file, im.name, im.edits?.crop ? 0 : maxDim);
+      const c = renderEdited(src, im.edits, { maxDim, background: '#ffffff' });
+      releaseSource(src);
       const blob = await canvasToBlob(c, 'image/jpeg', 0.86);
-      r = { data: new Uint8Array(await blob.arrayBuffer()), w: c.width, h: c.height };
+      return { data: new Uint8Array(await blob.arrayBuffer()), w: c.width, h: c.height };
     } catch (e) {
       warnings.push(`${im.relPath}: ${e.message}`);
-      r = null;
+      return null;
+    } finally {
+      done++;
+      onProgress?.(done / Math.max(1, imageCount), `Bild ${done} von ${imageCount}: ${im.name}`);
     }
-    done++;
-    onProgress?.(done / Math.max(1, imageCount), `Bild ${done} von ${imageCount}: ${im.name}`);
-    prepCache.set(im.id, r);
-    return r;
   }
+  function prep(im) {
+    if (!prepCache.has(im.id)) prepCache.set(im.id, prepOne(im));
+    return prepCache.get(im.id);
+  }
+  // Reihenfolge der Bilder im Bericht ermitteln und mit begrenzter Parallelität vorbereiten
+  const ordered = [];
+  (function collect(n) {
+    ordered.push(...n.images);
+    if (n.compare) { if (n.compare.mode === 'groups') ordered.push(...n.compare.before, ...n.compare.after); else for (const r of n.compare.rows) { if (r.b) ordered.push(r.b); if (r.a) ordered.push(r.a); } }
+    n.children.forEach(collect);
+  })(root);
+  const parallel = Math.max(2, thumbs.workerCount() || 2);
+  let nextIdx = 0;
+  async function lane() { while (nextIdx < ordered.length) { const im = ordered[nextIdx++]; await prep(im); } }
+  thumbs.pauseBackground(true);
+  const prefetch = Promise.all(Array.from({ length: parallel }, lane));
 
   const fit = (w, h, maxWcm, maxHcm) => {
     const sc = Math.min(maxWcm / (w / PX_PER_CM), maxHcm / (h / PX_PER_CM), 1e9);
@@ -103,6 +128,7 @@ async function generateReport(model, settings, scopePath, onProgress) {
   const captionText = im => {
     figNo++;
     if (s.caption === 'none') return null;
+    if (s.caption === 'top') return `Bild ${figNo}: ${MB['analyze'].topFolderName(model, im)}`;
     const t = s.caption === 'caption' ? (im.caption?.trim() || im.name) : (s.caption === 'both' && im.caption?.trim() ? `${im.caption.trim()} (${im.name})` : im.name);
     return `Abb. ${figNo}: ${t}`;
   };
@@ -202,6 +228,15 @@ async function generateReport(model, settings, scopePath, onProgress) {
       if (s.showPath) body.push(new D.Paragraph({ style: 'Pfad', children: [new D.TextRun(`Ordner: ${node.path}`)] }));
       if (node.title !== node.original && s.showOriginalName) body.push(new D.Paragraph({ style: 'Pfad', children: [new D.TextRun(`Originalordner: ${node.original}`)] }));
     }
+    for (const c of node.comments) {
+      const txt = MB['scanner'].commentText(c);
+      if (!txt) continue;
+      const lines = txt.split('\n');
+      body.push(new D.Paragraph({ style: 'Kommentar', keepNext: true, children: [
+        new D.TextRun({ text: 'Kommentar' + (c.prefix ? ` (${c.prefix})` : '') + ': ', bold: true }),
+        ...lines.flatMap((l, i) => i ? [new D.TextRun({ text: l, break: 1 })] : [new D.TextRun(l)]),
+      ] }));
+    }
     if (node.note?.trim() && s.showDocPointNote !== false) for (const line of node.note.trim().split(/\n+/)) body.push(new D.Paragraph({ spacing: { after: 100 }, children: [new D.TextRun(line)] }));
     if (node.images.length) {
       if (isRoot && (node.children.length || node.compare)) body.push(new D.Paragraph({ heading: D.HeadingLevel.HEADING_1, keepNext: true, children: [new D.TextRun(node.title)] }));
@@ -210,7 +245,8 @@ async function generateReport(model, settings, scopePath, onProgress) {
     if (node.compare) body.push(...await compareTable(node.compare));
     for (const c of node.children) await emit(c, false);
   }
-  await emit(root, true);
+  try { await emit(root, true); }
+  catch (e) { thumbs.pauseBackground(false); throw e; }
 
   // ---- Deckblatt ----
   const cover = [];
@@ -265,6 +301,7 @@ async function generateReport(model, settings, scopePath, onProgress) {
         { id: 'Heading5', name: 'Heading 5', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 21, bold: true, color: '5B6573' }, paragraph: { spacing: { before: 160, after: 60 }, keepNext: true } },
         { id: 'Heading6', name: 'Heading 6', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 21, italics: true, color: '5B6573' }, paragraph: { spacing: { before: 140, after: 60 }, keepNext: true } },
         { id: 'Bildunterschrift', name: 'Bildunterschrift', basedOn: 'Normal', run: { size: 17, color: '5B6573' }, paragraph: { spacing: { before: 20, after: 80 } } },
+        { id: 'Kommentar', name: 'Kommentar', basedOn: 'Normal', run: { size: 20, color: '1F2937' }, paragraph: { spacing: { before: 40, after: 120 }, shading: { type: D.ShadingType.CLEAR, color: 'auto', fill: 'FDF3DC' }, border: { left: { style: D.BorderStyle.SINGLE, size: 18, color: 'E8A317', space: 6 } }, indent: { left: 120 } } },
         { id: 'Pfad', name: 'Ordnerpfad', basedOn: 'Normal', run: { size: 16, color: '8A94A3' }, paragraph: { spacing: { after: 100 } } },
         { id: 'Deckblatttitel', name: 'Deckblatt Titel', basedOn: 'Normal', run: { size: 56, bold: true, color: '0F2A44' }, paragraph: { spacing: { after: 160 } } },
         { id: 'Deckblattuntertitel', name: 'Deckblatt Untertitel', basedOn: 'Normal', run: { size: 30, color: '5B6573' }, paragraph: { spacing: { after: 200 } } },
@@ -290,6 +327,8 @@ async function generateReport(model, settings, scopePath, onProgress) {
       children: [...cover, ...body],
     }],
   });
+  await prefetch;
+  thumbs.pauseBackground(false);
   onProgress?.(1, 'Word-Datei wird zusammengestellt …');
   const blob = await D.Packer.toBlob(doc);
   return { blob, warnings, imageCount: figNo };

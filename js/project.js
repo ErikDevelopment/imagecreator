@@ -5,7 +5,7 @@ const MB = (window.MB = window.MB || {});
 const { buildRecords, mergeRescan, derive, folderId } = MB['analyze'];
 const { DEFAULT_RULES } = MB['rules'];
 const { uid, sniffMime, todayDE } = MB['util'];
-const { resolveFromHandle, ensurePermission } = MB['scanner'];
+const { resolveFromHandle, ensurePermission, readNotes } = MB['scanner'];
 const db = MB['db'];
 // Projektzustand im Speicher, Laden/Speichern, Dateizugriff
 
@@ -32,15 +32,16 @@ async function saveGeneralSettings(s) { state.settings = { ...state.settings, ..
 function defaultReportSettings(name) {
   return {
     title: 'Montagebericht', subtitle: name || '', customer: '', site: '', plant: '', orderNo: '', technician: '', date: todayDE(),
-    intro: '', includeToc: true, numbering: true, perRow: 2, caption: 'filename', compareMode: 'pairs', quality: 'standard',
-    skipEmpty: true, showPath: false, onlySelected: true, logo: null, pageOrientation: 'portrait', showDocPointNote: true,
+    intro: '', includeToc: true, numbering: true, perRow: 2, caption: 'top', captionVersion: 2, compareMode: 'pairs', quality: 'standard',
+    skipEmpty: true, showFileComments: true, showPath: false, onlySelected: true, logo: null, pageOrientation: 'portrait', showDocPointNote: true,
   };
 }
 
 // ---------- Projekt anlegen ----------
 async function createProject(scan, onProgress, opts = {}) {
   const id = uid('prj_');
-  const { folders, images } = buildRecords(id, scan, state.rules, { autoSelect: state.settings.autoSelect });
+  const comments = await readNotes(scan);
+  const { folders, images } = buildRecords(id, scan, state.rules, { autoSelect: state.settings.autoSelect, comments });
   const storeCopies = scan.sourceType !== 'fsa' && opts.storeCopies !== false;
   const project = {
     id, name: scan.rootName, rootName: scan.rootName, sourceType: scan.sourceType, storeCopies,
@@ -67,12 +68,14 @@ async function createProject(scan, onProgress, opts = {}) {
 async function openProject(id, scan) {
   const project = await db.get('projects', id);
   if (!project) throw new Error('Projekt nicht gefunden');
+  // Dateien dieser Sitzung behalten, wenn dasselbe Projekt erneut geöffnet wird (z. B. direkt nach dem Anlegen)
+  const keepSession = !scan && state.project?.id === id && state.sessionFiles.size ? state.sessionFiles : null;
   project.openedAt = Date.now();
   await db.put('projects', project);
   state.project = project;
   state.folders = await db.getAllByProject('folders', id);
   state.images = await db.getAllByProject('images', id);
-  state.sessionFiles = new Map();
+  state.sessionFiles = keepSession || new Map();
   state.dirCache = new Map();
   state.handle = null; state.permission = 'none';
   if (scan) for (const f of scan.files) state.sessionFiles.set(f.relPath, f.getFile);
@@ -177,7 +180,8 @@ function attachSessionScan(scan) {
 // ---------- Neu einlesen ----------
 async function applyRescan(scan) {
   const p = state.project;
-  const res = mergeRescan(p.id, scan, state.rules, state.folders, state.images, { autoSelect: state.settings.autoSelect });
+  const comments = await readNotes(scan);
+  const res = mergeRescan(p.id, scan, state.rules, state.folders, state.images, { autoSelect: state.settings.autoSelect, comments });
   for (const im of res.images) { delete im.isNew; }
   for (const f of res.folders) { delete f.isNew; }
   await db.delMany('folders', res.removedFolders);
@@ -211,7 +215,9 @@ async function reclassify(classifyName) {
   rederive();
 }
 
-const thumbKey = im => `${im.id}|${im.editVersion || 0}|${im.sig || ''}`;
+// Schlüssel nur aus ID + Bearbeitungsstand: bleibt stabil, auch wenn Größe/Datum erst beim ersten Lesen bekannt werden.
+// Geänderte Dateien: „Neu einlesen“ löscht das alte Vorschaubild (applyRescan).
+const thumbKey = im => `${im.id}|${im.editVersion || 0}`;
 
 async function removeMissingImages() {
   const missing = state.images.filter(i => i.status === 'fehlt');

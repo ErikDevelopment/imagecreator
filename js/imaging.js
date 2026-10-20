@@ -6,8 +6,14 @@ const { loadScript, VENDOR, extOf } = MB['util'];
 // Bilddekodierung (inkl. HEIC/TIFF), nicht-destruktive Bearbeitung und Rendering
 
 // ---------- Dekodieren ----------
-async function decodeFile(file, nameHint) {
+// targetMax (optional): benötigte längere Seite in Pixeln. Dann werden JPEGs direkt verkleinert dekodiert
+// (deutlich schneller). Rückgabe hat immer width/height (gedreht) und origWidth/origHeight (volle Auflösung).
+async function decodeFile(file, nameHint, targetMax) {
   const ext = extOf(nameHint || file.name || '');
+  if (targetMax && window.MBFast && (ext === 'jpg' || ext === 'jpeg' || ext === 'jpe' || ext === 'jfif')) {
+    const fast = await window.MBFast.decodeScaled(file, targetMax);
+    if (fast) { const c = fast.canvas; c.origWidth = fast.origWidth; c.origHeight = fast.origHeight; return c; }
+  }
   if (ext === 'tif' || ext === 'tiff') return decodeTiff(file);
   try {
     return await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -207,8 +213,14 @@ function annotationBounds(a, RW, RH) {
   return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
 }
 
-function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.85) {
-  return new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Bild konnte nicht erzeugt werden')), type, quality));
+// Wandelt eine Zeichenfläche in eine Bilddatei um und gibt danach ihren Speicher frei
+// (keepCanvas: true, wenn die Fläche danach noch angezeigt wird)
+function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.85, keepCanvas = false) {
+  return new Promise((res, rej) => canvas.toBlob(b => {
+    if (!keepCanvas) { canvas.width = canvas.height = 0; }
+    b ? res(b) : rej(new Error('Bild konnte nicht erzeugt werden'));
+  }, type, quality));
 }
-MB['imaging'] = { decodeFile, emptyEdits, hasEdits, rotatedSize, renderEdited, drawAnnotations, annotationBounds, canvasToBlob };
+function releaseSource(src) { try { src?.close?.(); if (src && 'width' in src && !src.close) { src.width = src.height = 0; } } catch { /* */ } }
+MB['imaging'] = { releaseSource, decodeFile, emptyEdits, hasEdits, rotatedSize, renderEdited, drawAnnotations, annotationBounds, canvasToBlob };
 })();

@@ -17,6 +17,9 @@ const { openViewer, openCompareViewer } = MB['ui/viewer'];
 const { openEditor } = MB['ui/editor'];
 const { openRulesDialog } = MB['ui/settings'];
 const { openReportDialog } = MB['ui/report-dialog'];
+const { openTableCopyDialog } = MB['ui/table-copy'];
+const { runChecks } = MB['checks'];
+const { openChecksDialog } = MB['ui/checks-dialog'];
 const { exportBackup, readBackup, restoreBackup } = MB['backup'];
 const db = MB['db'];
 const thumbs = MB['thumbs'];
@@ -42,8 +45,8 @@ async function init() {
   setupDragDrop();
   thumbs.onProgress(updateProgress);
   onChange(what => {
-    if (what === 'model' || what === 'open') refreshAll();
-    else if (what === 'images') { refreshGallery(); refreshDetails(); updateStatus(); }
+    if (what === 'model' || what === 'open') { recheck(); refreshAll(); }
+    else if (what === 'images') { recheckSoon(); refreshGallery(); refreshDetails(); updateStatus(); }
     else if (what === 'permission') updatePermissionUi();
   });
   const last = await db.getSetting('lastProject', null);
@@ -192,7 +195,7 @@ async function handleScan(scan, mode) {
   copyChk.onchange = () => { storeCopies = copyChk.checked; };
   const tops = [...scan.dirs].filter(p => p && !p.includes('/')).sort(naturalCompare);
   const body = el('div', {},
-    el('p', { html: `<b>${escapeHtml(scan.rootName)}</b>: ${total} Bilddateien in ${scan.dirs.size - 1} Unterordnern${bytes != null ? ` (${formatBytes(bytes)})` : ''}. ${scan.ignored ? `${scan.ignored} andere Dateien werden ignoriert.` : ''}` }),
+    el('p', { html: `<b>${escapeHtml(scan.rootName)}</b>: ${total} Bilddateien in ${scan.dirs.size - 1} Unterordnern${bytes != null ? ` (${formatBytes(bytes)})` : ''}. ${scan.notes?.length ? `${scan.notes.length} Kommentar-Datei${scan.notes.length > 1 ? 'en' : ''} (.txt) erkannt. ` : ''}${scan.ignored ? `${scan.ignored} andere Dateien werden ignoriert.` : ''}` }),
     tops.length ? el('div', { class: 'scan-preview', html: tops.slice(0, 40).map(t => `<div>📁 ${escapeHtml(t)}</div>`).join('') + (tops.length > 40 ? `<div class="muted">… und ${tops.length - 40} weitere</div>` : '') }) : null,
     scan.sourceType !== 'fsa' ? el('label', { class: 'check' }, copyChk, ' Kopie der Bilder im Browser speichern (empfohlen – sonst muss der Ordner bei jedem Öffnen neu gewählt werden)') : el('p', { class: 'muted small', text: 'Die Bilder bleiben am Originalort und werden nicht kopiert. Die Anwendung merkt sich den Ordner.' }));
   const ok = await modal({ title: 'Projektordner analysiert', body, buttons: [{ label: 'Abbrechen', value: false, class: 'ghost' }, { label: 'Projekt anlegen', value: true, class: 'primary' }] });
@@ -238,6 +241,10 @@ async function enterProject(id, fresh = false) {
   ui.collapsed = new Set(savedUi.collapsed || []);
   ui.view = savedUi.view || 'gallery';
   ui.tile = savedUi.tile || 180;
+  // zuletzt gewählten Ordner wiederherstellen; Ordner ohne eigene Bilder zeigen automatisch ihre Unterordner
+  if (savedUi.folder != null && state.model.info.has(savedUi.folder)) ui.folder = savedUi.folder;
+  ui.includeSub = savedUi.includeSub ?? false;
+  { const i = state.model.info.get(ui.folder); if (i && i.direct === 0 && i.total > 0) ui.includeSub = true; }
   if (fresh) {
     // Bei neuen Projekten: Wurzel mit allen Unterordnern zeigen
     ui.includeSub = true;
@@ -264,7 +271,7 @@ async function grantAccess() {
 
 function saveUiState() {
   if (!state.project) return;
-  state.project.ui = { collapsed: [...ui.collapsed], view: ui.view, tile: ui.tile };
+  state.project.ui = { collapsed: [...ui.collapsed], view: ui.view, tile: ui.tile, folder: ui.folder, includeSub: ui.includeSub };
   saveProject();
 }
 const saveUiStateDebounced = debounce(saveUiState, 800);
@@ -301,13 +308,23 @@ function setupWorkspace() {
   $('btnSettings').addEventListener('click', () => openSettings());
   $('btnReport').addEventListener('click', async () => { await flush(); openReportDialog(state.model, ui.folder); });
   $('btnBackup').addEventListener('click', () => backupDialog());
+  $('btnChecks').addEventListener('click', () => showChecks());
+  $('btnCopyTable').addEventListener('click', () => {
+    const m = state.model;
+    const view = gallery.order;
+    const sources = [];
+    if (ui.selection.size > 1) sources.push({ key: 'sel', label: 'Ausgewählte Bilder', images: view.filter(im => ui.selection.has(im.id)) });
+    sources.push({ key: 'view', label: 'Aktuelle Ansicht', images: view });
+    sources.push({ key: 'all', label: 'Gesamtes Projekt', images: orderedFolderPaths(m).flatMap(p => m.imagesByFolder.get(p) || []) });
+    openTableCopyDialog(sources);
+  });
   $('btnExpandAll').addEventListener('click', () => { ui.collapsed.clear(); tree.render(); saveUiStateDebounced(); });
   $('btnCollapseAll').addEventListener('click', () => { for (const f of state.folders) if (f.path && state.model.info.get(f.path)?.children.length) ui.collapsed.add(f.path); tree.render(); saveUiStateDebounced(); });
   $('treeFilter').addEventListener('input', debounce(e => tree.setFilter(e.target.value), 150));
 
   document.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
   $('search').addEventListener('input', debounce(e => { ui.search = e.target.value; refreshGallery(true); }, 180));
-  $('includeSub').addEventListener('change', e => { ui.includeSub = e.target.checked; refreshGallery(true); });
+  $('includeSub').addEventListener('change', e => { ui.includeSub = e.target.checked; refreshGallery(true); saveUiStateDebounced(); });
   $('tileSize').addEventListener('input', e => { ui.tile = +e.target.value; gallery.setTileSize(ui.tile); saveUiStateDebounced(); });
   for (const [id, key] of [['fType', 'type'], ['fPhase', 'phase'], ['fDocPoint', 'docPoint'], ['fMark', 'mark'], ['sortBy', 'sort']]) {
     $(id).addEventListener('change', e => { ui[key] = e.target.value; refreshGallery(true); });
@@ -343,6 +360,7 @@ function syncToolbar() {
 
 function selectFolder(path) {
   ui.folder = path;
+  saveUiStateDebounced();
   ui.selection = new Set(); ui.anchor = null;
   // Vorfahren aufklappen
   let p = state.model.info.get(path)?.folder.parentPath;
@@ -645,6 +663,35 @@ async function backupDialog() {
   } catch (e) { prog.close(); showError(e); }
 }
 
+// ---------- Vollständigkeitsprüfung ----------
+function recheck() {
+  if (!state.model || !state.project) return null;
+  const r = runChecks(state.model, state.project);
+  state.model.checks = r;
+  const b = $('checkBadge');
+  b.hidden = !(r.missing || r.hints);
+  b.textContent = r.missing ? String(r.missing) : String(r.hints);
+  b.className = 'badge ' + (r.missing ? 'bad' : 'hint');
+  $('btnChecks').title = r.missing || r.hints ? `${r.missing} leere Ordner, ${r.hints} Hinweise` : 'Alles vollständig';
+  return r;
+}
+const recheckSoon = debounce(() => { const before = JSON.stringify([...(state.model?.checks?.byPath || [])]); const r = recheck(); if (r && JSON.stringify([...r.byPath]) !== before) tree.render(); updateStatus(); }, 400);
+
+function showChecks() {
+  openChecksDialog({
+    project: state.project,
+    getResult: () => recheck(),
+    gotoFolder: (p, view) => { selectFolder(p); setView(view || 'gallery'); },
+    setIgnored: (key, on) => {
+      const set = new Set(state.project.checkIgnored || []);
+      on ? set.add(key) : set.delete(key);
+      state.project.checkIgnored = [...set];
+      saveProject(); recheck(); tree.render(); updateStatus();
+    },
+  });
+}
+window.addEventListener('mb:show-checks', () => showChecks());
+
 // ---------- Status ----------
 function updateStatus() {
   if (!state.model) return;
@@ -654,6 +701,9 @@ function updateStatus() {
   const problems = state.images.filter(i => ['fehler', 'fehlt', 'nicht unterstützt', 'nicht lesbar'].includes(i.status)).length;
   const cmpOpen = [...m.compares.values()].filter(g => !g.enabled).length;
   $('statusLeft').innerHTML = `${total} Bilder · ${m.docPoints.length} Dokumentationspunkte · ${m.compares.size} Vorher/Nachher-Gruppen${cmpOpen ? ` (<a href="#" id="lnkOpenCmp">${cmpOpen} unbestätigt</a>)` : ''} · <b>${inRep}</b> im Bericht${problems ? ` · <a href="#" id="lnkProblems" class="warn-t">${problems} mit Problemen</a>` : ''}${ui.selection.size > 1 ? ` · ${ui.selection.size} ausgewählt` : ''}`;
+  const ck = m.checks;
+  if (ck?.missing) $('statusLeft').insertAdjacentHTML('beforeend', ` · <a href="#" id="lnkChecks" class="bad-t">⚠ ${ck.missing} leere${ck.missing > 1 ? '' : 'r'} Ordner</a>`);
+  $('lnkChecks')?.addEventListener('click', e => { e.preventDefault(); showChecks(); });
   $('lnkProblems')?.addEventListener('click', e => { e.preventDefault(); ui.mark = 'problem'; ui.folder = ''; ui.includeSub = true; syncToolbar(); setView('gallery'); refreshGallery(true); tree.render(); });
   $('lnkOpenCmp')?.addEventListener('click', e => { e.preventDefault(); selectFolder(''); setView('compare'); });
   const access = !filesAvailable() ? '<span class="warn-t">Originale nicht verbunden</span>' : state.handle ? 'Ordnerzugriff aktiv' : state.sessionFiles.size ? 'Ordner in dieser Sitzung geladen' : 'Kopie im Browser';

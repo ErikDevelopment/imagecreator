@@ -38,6 +38,7 @@ function buildRecords(projectId, scan, rules, opts = {}) {
       reportTitle: null,           // abweichender Berichtstitel (Original bleibt in name)
       includeInReport: true,
       note: '',
+      fileComments: (opts.comments && opts.comments.get(path)) || [],   // aus .txt-Dateien, wird bei jedem Einlesen neu gelesen
       compare: null,               // { enabled, userSet, mode, rows (manuell), manual }
     };
   };
@@ -292,6 +293,18 @@ function folderDisplayKind(i) {
   return 'Dokumentationspunkt';
 }
 
+// Ordnerweg eines Bildes: alle Ordnernamen vom Hauptordner bis zum Bildordner, z. B. „J03 Verdrahtung / Vorher“
+// (der Projektordner selbst wird weggelassen; Bilder direkt im Projektordner bekommen dessen Namen)
+function topFolderName(model, im, sep = ' / ') {
+  const fp = im.assignedFolder ?? im.folderPath;
+  if (!fp) return model.project?.rootName ?? model.info.get('')?.folder.name ?? '';
+  const parts = fp.split('/');
+  return parts.map((name, i) => {
+    const f = model.info.get(parts.slice(0, i + 1).join('/'))?.folder;
+    return (f?.reportTitle && f.reportTitle.trim()) || f?.name || name;
+  }).join(sep);
+}
+
 function descendantsOf(model, path) {
   const out = [];
   const walk = p => { for (const c of model.info.get(p)?.children || []) { out.push(c.path); walk(c.path); } };
@@ -305,5 +318,5 @@ function orderedFolderPaths(model, start = '') {
   walk(start);
   return out;
 }
-MB['analyze'] = { folderId, buildRecords, newImageRecord, mimeFromExt, mergeRescan, derive, folderDisplayKind, descendantsOf, orderedFolderPaths };
+MB['analyze'] = { topFolderName, folderId, buildRecords, newImageRecord, mimeFromExt, mergeRescan, derive, folderDisplayKind, descendantsOf, orderedFolderPaths };
 })();

@@ -37,6 +37,9 @@ function createTree(container, { getModel, getState, onSelect, onToggle, onDropI
       const badges = [];
       if (i.compare) badges.push(`<span class="chip vn ${i.compare.enabled ? '' : 'off'}" title="Vorher/Nachher-Gruppe (${i.compare.confidence})${i.compare.enabled ? '' : ' – noch nicht bestätigt'}">V|N${i.compare.confidence !== 'sicher' ? '?' : ''}</span>`);
       if (i.kind === 'role') badges.push(`<span class="chip role-${i.role} ${i.confidence !== 'sicher' ? 'unsure' : ''}" title="${escapeHtml(i.source || '')}">${ROLES[i.role].label}${i.confidence !== 'sicher' ? '?' : ''}</span>`);
+      const ckLevel = model.checks?.byPath.get(path);
+      if (ckLevel === 'fehlt') badges.push('<span class="chip ck-miss" title="Ordner ist leer – siehe „Vollständigkeit“">⚠</span>');
+      if (fo.fileComments?.length) badges.push(`<span class="chip cmt" title="${escapeHtml(fo.fileComments.map(c => c.title).join('\n'))}">💬${fo.fileComments.length > 1 ? fo.fileComments.length : ''}</span>`);
       if (fo.missingOnDisk) badges.push('<span class="chip warn" title="Ordner beim letzten Einlesen nicht mehr gefunden">fehlt</span>');
       if (!fo.includeInReport) badges.push('<span class="chip off" title="Nicht im Bericht">ausgeblendet</span>');
       const counts = `<span class="cnt" title="${i.direct} Bilder direkt, ${i.total} insgesamt, ${i.subCount} Unterordner">${i.direct !== i.total ? `${i.direct}<em>/${i.total}</em>` : i.total}${i.subCount ? `<b>▸${i.subCount}</b>` : ''}</span>`;

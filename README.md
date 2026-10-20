@@ -30,12 +30,37 @@ Empfohlen ist **Google Chrome oder Microsoft Edge**. Obwohl die App im Internet 
 - Alle anderen Ordner werden zu **Dokumentationspunkten bzw. Kapiteln**. Die Überschrift im Bericht ist **exakt der Ordnername**. Ein abweichender Berichtstitel kann je Ordner gesetzt werden, der Originalname bleibt immer erhalten.
 - Jeder Ordner kann seine Bedeutung manuell festgelegt bekommen (rechte Seitenleiste).
 
+## Kommentare per .txt-Datei
+
+Liegt in einem Bildordner eine `.txt`-Datei, wird sie zum **Kommentar für diesen Ordner**:
+
+- Der **Dateiname** (ohne `.txt`) ist der Kommentar, z. B. `Stecker war lose, nachgezogen.txt`. Die Datei darf leer sein.
+- Steht Text **in** der Datei, wird er zusätzlich übernommen. Bei Allerweltsnamen wie `Neues Textdokument.txt`, `Notiz.txt` oder `Kommentar.txt` zählt nur der Inhalt.
+- Kodierung UTF-8, UTF-16 und ältere Windows-Editoren (Windows-1252) werden erkannt.
+- Anzeige: 💬 im Ordnerbaum, Kommentarkasten in den Ordnerdetails, im Word-Bericht unter der Überschrift (bei Vorher/Nachher-Ordnern mit Ordnername) und optional unter den Bildern in der Word-Tabelle.
+- Kommentare werden bei jedem Einlesen neu aus den Dateien gelesen. Bei bestehenden Projekten einmal **Neu einlesen**.
+
+## Vollständigkeit prüfen (leere Ordner)
+
+Schaltfläche **Vollständigkeit** oben. Die Zahl zeigt, wie viele Ordner **komplett leer** sind, also weder Fotos noch Unterordner enthalten. Ein Ordner, in dem nur eine `.txt` liegt, zählt ebenfalls als leer. Die Prüfung braucht keine festen Ordnernamen und funktioniert mit jeder Struktur.
+
+- Leere Ordner bekommen ⚠ im Ordnerbaum. Vor dem Word-Export erscheint eine Warnung.
+- „Zum Ordner“ springt direkt hin, „Ignorieren“ blendet eine Meldung für dieses Projekt aus.
+- Zusätzlich als **Hinweise** (ohne Warnzähler): ungleiche Anzahl Vorher/Nachher, nicht bestätigte Vorher/Nachher-Erkennung, Vorher-Ordner ohne Nachher-Ordner, Fotos ohne Auswahl für den Bericht, beschädigte Dateien.
+
 ## Vorher/Nachher
 
 - Paare werden nach der ursprünglichen Reihenfolge gebildet und als „automatisch“ gekennzeichnet. Bei ungleicher Anzahl bleiben überzählige Bilder sichtbar („ohne Gegenstück“). Es geht kein Bild verloren.
 - In der Ansicht **Vorher / Nachher**: Bild links anklicken, dann rechts → verknüpfen. „Lösen“ trennt ein Paar. Zelle auf Zelle ziehen tauscht, Zeilengriff ⋮⋮ verschiebt ein Paar.
 - Vollbild-Vergleich mit optional synchronisiertem Zoom (Mausrad, Ziehen, Doppelklick).
 - Darstellung im Bericht je Gruppe: *paarweise Zeilen*, *Gruppen gegenüber* oder *getrennt*.
+
+## Bilder als Word-Tabelle kopieren
+
+Schaltfläche **⧉ Als Word-Tabelle** in der Galerie: Die Bilder werden als Tabelle mit 1–4 Spalten angeordnet. Unter jedem Bild steht standardmäßig **„Bild 1: Ordner / Unterordner“**, fortlaufend nummeriert, mit allen Ordnernamen vom Hauptordner bis zum Bildordner, z. B. „Bild 3: J03 Verdrahtung / Vorher“. So sind Vorher und Nachher unterscheidbar. Kommentare aus `.txt`-Dateien stehen zusätzlich darunter. Alternativ: Ordnername, Dokumentationspunkt – Unterordner, Ordnername – Dateiname oder vollständiger Pfad. Der Word-Bericht nutzt dieselbe Beschriftung „Bild N: Ordner / Unterordner“ als Standard (umstellbar im Berichtsdialog). Quelle: ausgewählte Bilder, aktuelle Ansicht oder das gesamte Projekt. Bearbeitungen werden übernommen.
+
+- **In Zwischenablage kopieren** → in Word mit Strg+V (Mac: ⌘+V) an beliebiger Stelle einfügen.
+- **Als Word-Datei speichern** → eigene `.docx` nur mit dieser Tabelle. Der sicherere Weg bei sehr vielen Bildern oder wenn eine Word-Version eingefügte Bilder nicht anzeigt.
 
 ## Bearbeiten (nicht-destruktiv)
 
@@ -82,6 +107,20 @@ Ausgewählte Bilder auf einen Ordner im Baum ziehen = im Bericht dort einordnen 
 
 Reines **HTML, CSS und JavaScript**, ohne Framework, ohne Build-Schritt und ohne Server. Die Skripte sind klassische `<script>`-Dateien (keine ES-Module), jede kapselt sich in eine Funktion und meldet ihre Funktionen im Namensraum `window.MB` an. So läuft dieselbe App auf GitHub Pages (HTTPS) und per Doppelklick (`file://`), wo Browser ES-Module blockieren. Die Reihenfolge der `<script>`-Tags in `index.html` ist deshalb wichtig. Bibliotheken liegen im Repo unter `vendor/`, also kein CDN nötig:
 
+**Geschwindigkeit:** JPEG-Fotos werden mit WebCodecs `ImageDecoder` direkt verkleinert dekodiert (1/2, 1/4 oder 1/8 der Auflösung, `js/fastdecode.js`). Bei 12-MP-Handyfotos ist das rund 4× schneller als volles Dekodieren. Vorschaubilder und Word-Export laufen parallel in mehreren Web Workern (bis zu 6, je nach Prozessorkernen). Gespeicherte Vorschaubilder werden beim Öffnen in einem einzigen Datenbankzugriff geladen. Die Galerie erzeugt beim Scrollen nur neu sichtbare Kacheln. Browser ohne `ImageDecoder` und Formate wie PNG, HEIC oder TIFF nutzen automatisch den normalen Weg.
+
+**Arbeitsspeicher:** Worker werden nach 2,5 s Leerlauf beendet (gibt ihren Speicher frei), nutzen je eine wiederverwendete Zeichenfläche im Arbeitsspeicher statt im Grafikspeicher, und ihre Anzahl richtet sich nach dem Gerätespeicher (z. B. 4 bei 8 GB). Wichtig: Ein mit `ImageDecoder` dekodierter Frame wird über `createImageBitmap` gezeichnet und nicht direkt mit `drawImage`. Der direkte Weg hält in Chrome pro Bild die ganze Datei im Speicher (gemessen +229 MB bei 300 Fotos, führte zu Browserabstürzen). Ab 250 Bildern empfiehlt der Berichtsdialog die Qualität „Kompakt“.
+
+Messung (600 Fotos à 12 MP, Testrechner mit nur 2 Kernen):
+
+| | vorher | nachher |
+|---|---|---|
+| alle Vorschaubilder erzeugen | 28,4 s | 9,7 s |
+| erste Vorschaubilder sichtbar | 0,86 s | 0,19 s |
+| Word-Export (40 Bilder) | 7,1 s | 3,6 s |
+| Projekt erneut öffnen, alles geladen | – | 0,4 s |
+| Speicher der Seite nach dem Einlesen (Spitze / Leerlauf) | 740 / 620 MB | 280 / 165 MB |
+
 | Bibliothek | Zweck |
 |---|---|
 | docx 9.x | echter Word-Export |
@@ -100,7 +139,8 @@ css/app.css
   js/project.js        Projektzustand, Speichern, Dateizugriff
   js/db.js             IndexedDB
   js/thumbs.js         Vorschaubild-Warteschlange + Cache
-  js/thumb-worker.js   Worker: Vorschau + EXIF (nur über https, bei file:// im Hauptthread)
+  js/thumb-worker.js   Worker: Vorschau + EXIF + Bildvorbereitung für den Export (nur über https, bei file:// im Hauptthread)
+  js/fastdecode.js     schnelles verkleinertes JPEG-Dekodieren (Hauptprogramm und Worker)
   js/imaging.js        Dekodieren, nicht-destruktive Bearbeitung
   js/report.js         DOCX-Erzeugung
   js/backup.js         Sicherung/Wiederherstellung

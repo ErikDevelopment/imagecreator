@@ -45,6 +45,7 @@
       </div>
       <div class="topbar-actions">
         <button id="btnRelink" class="btn warn" hidden>Ordner erneut verbinden</button>
+        <button id="btnChecks" class="btn ghost" title="Komplett leere Ordner finden">Vollständigkeit <span id="checkBadge" class="badge" hidden></span></button>
         <button id="btnRescan" class="btn ghost" title="Ordner erneut einlesen – Bearbeitungen bleiben erhalten">Neu einlesen</button>
         <button id="btnBackup" class="btn ghost">Sicherung</button>
         <button id="btnSettings" class="btn ghost">Erkennungsregeln</button>
@@ -76,6 +77,7 @@
           <input id="search" type="search" placeholder="Dateiname, Ordner oder Pfad suchen …">
           <label class="check"><input type="checkbox" id="includeSub"> Unterordner</label>
           <div class="toolbar-spacer"></div>
+          <button id="btnCopyTable" class="btn ghost sm" title="Bilder als formatierte Tabelle mit Ordnernamen in die Zwischenablage kopieren oder als Word-Datei speichern">⧉ Als Word-Tabelle</button>
           <input id="tileSize" type="range" min="110" max="320" value="180" title="Kachelgröße">
         </div>
         <div class="toolbar filters" id="filterBar">
@@ -121,6 +123,7 @@
 
   <noscript>Diese Anwendung benötigt JavaScript.</noscript>
   <!-- Klassische Skripte (keine ES-Module), damit index.html per Doppelklick (file://) funktioniert. Reihenfolge beachten. -->
+  <script src="js/fastdecode.js"></script>
   <script src="js/util.js"></script>
   <script src="js/db.js"></script>
   <script src="js/rules.js"></script>
@@ -140,6 +143,9 @@
   <script src="js/ui/details.js"></script>
   <script src="js/ui/settings.js"></script>
   <script src="js/ui/report-dialog.js"></script>
+  <script src="js/checks.js"></script>
+  <script src="js/ui/checks-dialog.js"></script>
+  <script src="js/ui/table-copy.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
