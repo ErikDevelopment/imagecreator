@@ -84,7 +84,7 @@ async function openReportDialog(model, scopePath) {
         el('h4', { text: 'Darstellung' }),
         el('div', { class: 'row2' },
           sel('perRow', 'Bilder pro Zeile', [['1', '1 (groß)'], ['2', '2'], ['3', '3 (kompakt)']]),
-          sel('caption', 'Bildunterschrift', [['top', 'Bild 1: Ordner / Unterordner (fortlaufend)'], ['filename', 'Dateiname'], ['caption', 'Beschriftung (sonst Dateiname)'], ['both', 'Beschriftung + Dateiname'], ['none', 'keine']])),
+          sel('caption', 'Bildunterschrift', [['top', 'Bild 1: Ordner / Unterordner (fortlaufend)'], ['top+file', 'Bild 1 / Ordner / Unterordner / Dateiname'], ['filename', 'Dateiname'], ['caption', 'Beschriftung (sonst Dateiname)'], ['both', 'Beschriftung + Dateiname'], ['none', 'keine']])),
         el('div', { class: 'row2' },
           sel('quality', 'Bildqualität', [['kompakt', 'Kompakt (kleine Datei)'], ['standard', 'Standard'], ['hoch', 'Hoch (große Datei)']]),
           sel('pageOrientation', 'Seitenformat', [['portrait', 'A4 Hochformat'], ['landscape', 'A4 Querformat']])),

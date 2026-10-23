@@ -307,6 +307,16 @@ function topFolderName(model, im, sep = ' / ') {
   }).join(sep);
 }
 
+// Dateiname ohne Endung (PDF-Seiten: „Protokoll – Seite 02“)
+function nameWithoutExt(im) {
+  if (im.pdfPage) return im.name.replace(/\.pdf(?=( – Seite \d+)?$)/i, '');
+  return im.name.replace(/\.[^.]+$/, '');
+}
+// „Bild N / Ordner / Unterordner / Dateiname“ – alles mit „ / “ getrennt
+function captionWithFile(model, im, n) {
+  return [`Bild ${n}`, topFolderName(model, im), nameWithoutExt(im)].filter(Boolean).join(' / ');
+}
+
 function descendantsOf(model, path) {
   const out = [];
   const walk = p => { for (const c of model.info.get(p)?.children || []) { out.push(c.path); walk(c.path); } };
@@ -320,5 +330,5 @@ function orderedFolderPaths(model, start = '') {
   walk(start);
   return out;
 }
-MB['analyze'] = { topFolderName, folderId, buildRecords, newImageRecord, mimeFromExt, mergeRescan, derive, folderDisplayKind, descendantsOf, orderedFolderPaths };
+MB['analyze'] = { topFolderName, nameWithoutExt, captionWithFile, folderId, buildRecords, newImageRecord, mimeFromExt, mergeRescan, derive, folderDisplayKind, descendantsOf, orderedFolderPaths };
 })();

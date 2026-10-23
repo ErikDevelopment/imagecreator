@@ -130,6 +130,7 @@ async function generateReport(model, settings, scopePath, onProgress) {
     figNo++;
     if (s.caption === 'none') return null;
     if (s.caption === 'top') return `Bild ${figNo}: ${MB['analyze'].topFolderName(model, im)}`;
+    if (s.caption === 'top+file') return MB['analyze'].captionWithFile(model, im, figNo);
     const t = s.caption === 'caption' ? (im.caption?.trim() || im.name) : (s.caption === 'both' && im.caption?.trim() ? `${im.caption.trim()} (${im.name})` : im.name);
     return `Abb. ${figNo}: ${t}`;
   };

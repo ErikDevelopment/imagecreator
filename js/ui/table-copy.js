@@ -17,6 +17,7 @@ const PX_PER_CM = 96 / 2.54;
 // Beschriftung unter dem Bild
 function captionFor(im, mode, model, n) {
   if (mode === 'top') return `Bild ${n}: ${topFolderName(model, im)}`;
+  if (mode === 'top+file') return MB['analyze'].captionWithFile(model, im, n);
   const fp = im.assignedFolder ?? im.folderPath;
   const info = model.info.get(fp);
   const folderName = fp === '' ? state.project.rootName : (info?.folder.name ?? fp.split('/').pop());
@@ -146,6 +147,7 @@ async function openTableCopyDialog(sources) {
   colsSel.value = '2';
   const capSel = el('select', {},
     el('option', { value: 'top', text: 'Bild 1: Ordner / Unterordner (fortlaufend)' }),
+    el('option', { value: 'top+file', text: 'Bild 1 / Ordner / Unterordner / Dateiname' }),
     el('option', { value: 'docpoint', text: 'Ordnername (bei Vorher/Nachher mit Dokupunkt davor)' }),
     el('option', { value: 'folder', text: 'Nur Ordnername' }),
     el('option', { value: 'folder+file', text: 'Ordnername – Dateiname' }),
