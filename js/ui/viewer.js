@@ -4,7 +4,7 @@
 const MB = (window.MB = window.MB || {});
 const { el, escapeHtml } = MB['util'];
 const { getFile } = MB['project'];
-const { decodeFile, renderEdited, canvasToBlob } = MB['imaging'];
+const { decodeImageRecord, renderEdited, canvasToBlob } = MB['imaging'];
 // Bildbetrachter: Einzelbild mit Zoom/Verschieben, Vorher/Nachher nebeneinander mit optional synchronem Zoom
 
 const fullCache = new Map(); // key -> objectURL (kleiner LRU)
@@ -12,7 +12,7 @@ async function fullUrl(im) {
   const key = `${im.id}|${im.editVersion || 0}|${im.sig}`;
   if (fullCache.has(key)) { const u = fullCache.get(key); fullCache.delete(key); fullCache.set(key, u); return u; }
   const file = await getFile(im);
-  const bmp = await decodeFile(file, im.name);
+  const bmp = await decodeImageRecord(im, file, im.pdfPage ? 3000 : 0);
   const c = renderEdited(bmp, im.edits, { maxDim: 3200 });
   bmp.close?.();
   const blob = await canvasToBlob(c, 'image/jpeg', 0.92);

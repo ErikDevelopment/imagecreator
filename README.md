@@ -30,6 +30,16 @@ Empfohlen ist **Google Chrome oder Microsoft Edge**. Obwohl die App im Internet 
 - Alle anderen Ordner werden zu **Dokumentationspunkten bzw. Kapiteln**. Die Überschrift im Bericht ist **exakt der Ordnername**. Ein abweichender Berichtstitel kann je Ordner gesetzt werden, der Originalname bleibt immer erhalten.
 - Jeder Ordner kann seine Bedeutung manuell festgelegt bekommen (rechte Seitenleiste).
 
+## PDF-Dateien
+
+Liegen PDFs in den Bildordnern (z. B. Messprotokolle, eingescannte Abnahmen), wird **jede Seite zu einem eigenen Bild**. Es lässt sich wie ein Foto auswählen, beschriften, bearbeiten (Pfeile, Zuschnitt …) und in den Word-Bericht oder die Word-Tabelle einfügen.
+
+- Einseitige PDFs heißen wie die Datei, mehrseitige „Datei.pdf – Seite 01“, „– Seite 02“ …
+- PDFs mit bis zu 5 Seiten werden automatisch für den Bericht ausgewählt. Längere (z. B. Handbücher) sind sichtbar, aber erst einmal abgewählt.
+- Kennzeichen „PDF“ bzw. „PDF 3“ auf der Kachel, Filter „PDF-Seiten“ im Typ-Filter.
+- Darstellung mit [pdf.js](https://mozilla.github.io/pdf.js/) (Mozilla, Apache-2.0), lokal unter `vendor/pdfjs/`, ohne Upload.
+- Grenzen: Passwortgeschützte oder beschädigte PDFs erscheinen als Eintrag mit Fehlerhinweis. Beim Start per Doppelklick (`file://`) blockieren Browser die PDF-Bibliothek, PDFs funktionieren nur in der Online-Version (GitHub Pages).
+
 ## Kommentare per .txt-Datei
 
 Liegt in einem Bildordner eine `.txt`-Datei, wird sie zum **Kommentar für diesen Ordner**:
@@ -128,6 +138,7 @@ Messung (600 Fotos à 12 MP, Testrechner mit nur 2 Kernen):
 | exifr | EXIF-Metadaten |
 | UTIF.js + pako | TIFF-Dekodierung |
 | heic2any | HEIC-Dekodierung (nur bei Bedarf geladen) |
+| pdf.js 4.10 (Mozilla) | PDF-Seiten als Bilder (nur bei Bedarf geladen) |
 
 ```
 index.html, .nojekyll
@@ -145,5 +156,6 @@ css/app.css
   js/report.js         DOCX-Erzeugung
   js/backup.js         Sicherung/Wiederherstellung
   js/ui/*              Baum, Galerie, Vergleich, Betrachter, Editor, Dialoge
-vendor/                docx, JSZip, exifr, UTIF, pako, heic2any
+  js/pdf.js            PDF-Seiten zählen und rendern (pdf.js)
+vendor/                docx, JSZip, exifr, UTIF, pako, heic2any, pdfjs/
 ```

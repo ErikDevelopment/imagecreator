@@ -430,3 +430,7 @@ input[type=range] { accent-color: var(--accent); }
 .ck-ta { width: 100%; font-size: 13px; }
 .ck-prev { margin: 6px 0 10px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .ck-notice { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 10px; }
+
+/* PDF-Seiten */
+.b.pdf { background: #b42318; }
+.tile .thumb.pdfpage { background-color: #fff; }

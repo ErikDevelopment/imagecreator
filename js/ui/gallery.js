@@ -98,6 +98,7 @@ function createGallery(scroller, spacer, handlers) {
     const problem = ['fehler', 'fehlt', 'nicht unterstützt', 'nicht lesbar'].includes(im.status);
     const badges = [];
     if (ph) badges.push(`<span class="b ph-${ph.phase} ${ph.enabled ? '' : 'unsure'}" title="${ph.phase === 'before' ? 'Vorher' : 'Nachher'} (${ph.confidence})">${ph.phase === 'before' ? 'V' : 'N'}</span>`);
+    if (im.pdfPage) badges.push(`<span class="b pdf" title="Seite ${im.pdfPage} von ${im.pdfPages} aus ${escapeHtml(im.pdfName || '')}">PDF${im.pdfPages > 1 ? ' ' + im.pdfPage : ''}</span>`);
     if (hasEdits(im.edits)) badges.push('<span class="b ed" title="Bearbeitet">✎</span>');
     if (im.assignedFolder != null) badges.push('<span class="b mv" title="Im Bericht einem anderen Ordner zugeordnet">↪</span>');
     if (im.starred) badges.push('<span class="b st" title="Markiert">★</span>');

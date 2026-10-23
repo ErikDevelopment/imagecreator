@@ -24,6 +24,12 @@ async function decodeFile(file, nameHint, targetMax) {
   }
 }
 
+// Bild eines Datensatzes dekodieren: Fotos über decodeFile, PDF-Seiten über pdf.js
+async function decodeImageRecord(im, file, targetMax) {
+  if (im.pdfPage) return MB['pdf'].renderPage(file, im.pdfPage, targetMax || 2400);
+  return decodeFile(file, im.name, targetMax);
+}
+
 async function decodeViaImg(blob) {
   const url = URL.createObjectURL(blob);
   try {
@@ -222,5 +228,5 @@ function canvasToBlob(canvas, type = 'image/jpeg', quality = 0.85, keepCanvas = 
   }, type, quality));
 }
 function releaseSource(src) { try { src?.close?.(); if (src && 'width' in src && !src.close) { src.width = src.height = 0; } } catch { /* */ } }
-MB['imaging'] = { releaseSource, decodeFile, emptyEdits, hasEdits, rotatedSize, renderEdited, drawAnnotations, annotationBounds, canvasToBlob };
+MB['imaging'] = { releaseSource, decodeFile, decodeImageRecord, emptyEdits, hasEdits, rotatedSize, renderEdited, drawAnnotations, annotationBounds, canvasToBlob };
 })();

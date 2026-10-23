@@ -23,9 +23,13 @@ async function exportBackup({ thumbs = true, originals = false } = {}, onProgres
     }
   }
   if (originals) {
+    const done = new Set();
     for (const im of images) {
       if (im.status === 'fehlt') continue;
-      try { zip.file('originale/' + im.relPath, await getFile(im)); }
+      const path = im.fileRelPath || im.relPath;                 // PDF-Seiten teilen sich eine Datei
+      if (done.has(path)) { n++; continue; }
+      done.add(path);
+      try { zip.file('originale/' + path, await getFile(im)); }
       catch { missing++; }
       onProgress?.(++n / images.length, `Original ${n} von ${images.length}`);
     }
@@ -79,8 +83,9 @@ async function restoreBackup({ data, zip }, { replace = false } = {}, onProgress
       const oldId = rev.get(im.id);
       const t = zip.file(`thumbs/${oldId}.jpg`);
       if (t) await db.put('thumbs', { key: thumbKey(im), projectId: newId, blob: await t.async('blob') });
-      const o = zip.file('originale/' + im.relPath);
-      if (o) await db.put('files', { key: newId + '|' + im.relPath, projectId: newId, file: new File([await o.async('blob')], im.name, { lastModified: im.lastModified || Date.now() }) });
+      const path = im.fileRelPath || im.relPath;
+      const o = zip.file('originale/' + path);
+      if (o && !(await db.get('files', newId + '|' + path))) await db.put('files', { key: newId + '|' + path, projectId: newId, file: new File([await o.async('blob')], im.pdfName || im.name, { lastModified: im.lastModified || Date.now() }) });
       onProgress?.(++n / images.length, `Bild ${n} von ${images.length}`);
     }
   }

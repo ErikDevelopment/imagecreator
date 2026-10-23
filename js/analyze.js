@@ -66,8 +66,8 @@ function buildRecords(projectId, scan, rules, opts = {}) {
 }
 
 function newImageRecord(projectId, f, indexInFolder, globalIndex, opts = {}) {
-  const ext = extOf(f.name);
-  const supported = IMAGE_EXT.has(ext);
+  const ext = f.ext || extOf(f.name);
+  const supported = (IMAGE_EXT.has(ext) || ext === 'pdf') && !f.pdfError;
   return {
     id: uid('img_'), projectId,
     name: f.name, relPath: f.relPath, folderPath: f.dirPath,
@@ -76,11 +76,13 @@ function newImageRecord(projectId, f, indexInFolder, globalIndex, opts = {}) {
     width: null, height: null, exifOrientation: null,
     dateTaken: null, dateSource: null, camera: null,
     indexInFolder, globalIndex,
-    status: supported ? 'ausstehend' : 'nicht unterstützt',
-    error: supported ? null : `Format .${ext} wird nicht unterstützt (z. B. RAW/PSD/SVG). Datei bleibt als Eintrag sichtbar.`,
+    status: f.pdfError ? 'fehler' : supported ? 'ausstehend' : 'nicht unterstützt',
+    error: f.pdfError ? `PDF konnte nicht gelesen werden: ${f.pdfError}` : supported ? null : `Format .${ext} wird nicht unterstützt (z. B. RAW/PSD/SVG). Datei bleibt als Eintrag sichtbar.`,
+    // PDF-Seiten: echte Datei + Seitennummer
+    fileRelPath: f.fileRelPath || null, pdfPage: f.pdfPage || null, pdfPages: f.pdfPages || null, pdfName: f.pdfName || null,
     sig: f.size != null ? `${f.size}-${f.lastModified}` : null,
     metaDone: false,
-    selected: supported && opts.autoSelect !== false,
+    selected: supported && opts.autoSelect !== false && f.autoSelect !== false,
     label: null, starred: false, caption: '', note: '',
     edits: null, editVersion: 0,
     assignedFolder: null,  // virtuelle Zuordnung zu anderem Ordner (Original bleibt erhalten)
@@ -89,7 +91,7 @@ function newImageRecord(projectId, f, indexInFolder, globalIndex, opts = {}) {
 }
 
 function mimeFromExt(ext) {
-  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif' })[ext] || 'unbekannt';
+  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg', jfif: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', pdf: 'application/pdf' })[ext] || 'unbekannt';
 }
 
 // ---------- Erneutes Einlesen: Benutzerdaten erhalten ----------

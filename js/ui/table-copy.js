@@ -6,7 +6,7 @@
 const MB = (window.MB = window.MB || {});
 const { el, escapeHtml, loadDocx, saveBlob, safeFileName } = MB['util'];
 const { state, getFile } = MB['project'];
-const { decodeFile, renderEdited, releaseSource } = MB['imaging'];
+const { decodeImageRecord, renderEdited, releaseSource } = MB['imaging'];
 const { modal, toast, progressDialog } = MB['ui/dialogs'];
 const { topFolderName } = MB['analyze'];
 
@@ -49,14 +49,15 @@ function commentsFor(im, model) {
 // Bild in Zielgröße bringen (Bearbeitungen werden übernommen)
 async function prepImage(im, maxWcm, maxHcm, quality) {
   const file = await getFile(im);
-  const bmp = await decodeFile(file, im.name, im.edits?.crop ? 0 : quality);   // direkt verkleinert dekodieren
+  const bmp = await decodeImageRecord(im, file, im.edits?.crop ? (im.pdfPage ? quality * 2 : 0) : quality);   // direkt verkleinert dekodieren
   const c = renderEdited(bmp, im.edits, { maxDim: quality, background: '#ffffff' });
   releaseSource(bmp);
   const sc = Math.min((maxWcm * PX_PER_CM) / c.width, (maxHcm * PX_PER_CM) / c.height);
   const w = Math.max(1, Math.round(c.width * sc)), h = Math.max(1, Math.round(c.height * sc));
+  const cw = c.width, ch = c.height;
   const dataUrl = c.toDataURL('image/jpeg', 0.86);
   c.width = c.height = 0;   // Speicher der Zeichenfläche sofort freigeben
-  return { dataUrl, w, h, cw: c.width, ch: c.height };
+  return { dataUrl, w, h, cw, ch };
 }
 
 function layout(cols) {

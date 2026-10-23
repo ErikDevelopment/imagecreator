@@ -139,6 +139,7 @@ async function sniffMime(file) {
     if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'image/jpeg';
     if (b[0] === 0x89 && s(1, 3) === 'PNG') return 'image/png';
     if (s(0, 4) === 'GIF8') return 'image/gif';
+    if (s(0, 4) === '%PDF') return 'application/pdf';
     if (s(0, 4) === 'RIFF' && s(8, 4) === 'WEBP') return 'image/webp';
     if (s(0, 2) === 'BM') return 'image/bmp';
     if ((b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2A) || (b[0] === 0x4D && b[1] === 0x4D && b[3] === 0x2A)) return 'image/tiff';

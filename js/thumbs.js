@@ -3,7 +3,7 @@
 'use strict';
 const MB = (window.MB = window.MB || {});
 const { state, getFile, markImages, thumbKey } = MB['project'];
-const { decodeFile, renderEdited, canvasToBlob, hasEdits, releaseSource } = MB['imaging'];
+const { decodeImageRecord, renderEdited, canvasToBlob, hasEdits, releaseSource } = MB['imaging'];
 const { sniffMime } = MB['util'];
 const db = MB['db'];
 // Vorschaubilder: Erzeugung im Hintergrund (Worker-Pool), Zwischenspeicherung in IndexedDB,
@@ -161,7 +161,7 @@ async function processJob({ im, key }) {
   const size = state.settings.thumbSize || 360;
   let blob = stored?.blob || null;
   let result = null;
-  const w = !hasEdits(im.edits) ? freeWorker() : null;
+  const w = !hasEdits(im.edits) && !im.pdfPage ? freeWorker() : null;   // PDF-Seiten rendert pdf.js im Hauptprogramm
   if (w) {
     result = await runInWorker(w, { id: im.id, file, size, wantMeta: needMeta });
     if (result.thumb) blob = result.thumb;
@@ -173,7 +173,7 @@ async function processJob({ im, key }) {
     // Hauptprogramm: Spezialformate (HEIC/TIFF), bearbeitete Bilder oder kein Worker (file://)
     try {
       const noCrop = !im.edits?.crop;
-      const src = await decodeFile(file, im.name, noCrop ? size : 0);
+      const src = await decodeImageRecord(im, file, noCrop ? size : (im.pdfPage ? 1600 : 0));
       im.width = src.origWidth || src.width; im.height = src.origHeight || src.height;
       if (needMeta && !result?.meta) await readMetaMain(im, file);
       const c = renderEdited(src, im.edits, { maxDim: size });

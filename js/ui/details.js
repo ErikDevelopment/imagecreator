@@ -40,8 +40,9 @@ function renderImage(c, im, ctx) {
   const orient = im.width ? (im.width > im.height ? 'Querformat' : im.width < im.height ? 'Hochformat' : 'Quadratisch') : '–';
   const statusCls = ['fehler', 'fehlt', 'nicht unterstützt', 'nicht lesbar'].includes(im.status) ? 'bad' : '';
   const meta = `<table class="meta">
-    ${row('Dateiname', escapeHtml(im.name))}
-    ${row('Relativer Pfad', `<code>${escapeHtml(im.relPath)}</code>`)}
+    ${row('Dateiname', escapeHtml(im.pdfName || im.name))}
+    ${im.pdfPage ? row('PDF-Seite', `Seite ${im.pdfPage} von ${im.pdfPages}`) : ''}
+    ${row('Relativer Pfad', `<code>${escapeHtml(im.fileRelPath || im.relPath)}</code>`)}
     ${row('Ursprünglicher Ordner', escapeHtml(model.info.get(im.folderPath)?.folder.name ?? im.folderPath))}
     ${row('Übergeordneter Ordner', escapeHtml(parent))}
     ${row('Ordnerpfad', `<code>${escapeHtml(im.folderPath || '(Projektordner)')}</code>`)}

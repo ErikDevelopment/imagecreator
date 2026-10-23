@@ -18,7 +18,7 @@ const KNOWN_UNSUPPORTED = new Set(['cr2', 'cr3', 'nef', 'arw', 'dng', 'raw', 'or
 
 const SKIP_NAMES = new Set(['thumbs.db', 'desktop.ini', '.ds_store', '__macosx', '$recycle.bin', 'system volume information', '.spotlight-v100', '.trashes', '.fseventsd']);
 const isSkipped = name => name.startsWith('.') || name.startsWith('~$') || SKIP_NAMES.has(name.toLowerCase());
-const isCandidate = name => { const e = extOf(name); return IMAGE_EXT.has(e) || KNOWN_UNSUPPORTED.has(e); };
+const isCandidate = name => { const e = extOf(name); return IMAGE_EXT.has(e) || KNOWN_UNSUPPORTED.has(e) || e === 'pdf'; };
 // .txt-Dateien in Bildordnern sind Kommentare (Dateiname = Kommentartext, Inhalt optional)
 const isNote = name => extOf(name) === 'txt';
 

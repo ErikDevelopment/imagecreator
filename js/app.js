@@ -170,7 +170,8 @@ async function handleScan(scan, mode) {
     }
     if (mode === 'relink') {
       attachSessionScan(scan);
-      const matched = state.images.filter(i => scan.files.some(f => f.relPath === i.relPath)).length;
+      const paths = new Set(scan.files.map(f => f.relPath));
+      const matched = state.images.filter(i => paths.has(i.fileRelPath || i.relPath)).length;
       toast(`Ordner verbunden – ${matched} von ${state.images.length} Bildern gefunden.`, { type: 'ok' });
       thumbs.resetCache(); refreshAll(); thumbs.processAll(state.images);
       return;
@@ -188,6 +189,7 @@ async function handleScan(scan, mode) {
   }
   // Neues Projekt: Zusammenfassung zeigen
   const total = scan.files.length;
+  const pdfN = scan.files.filter(f => /\.pdf$/i.test(f.name)).length;
   const sizeKnown = scan.files.every(f => f.size != null);
   const bytes = sizeKnown ? scan.files.reduce((a, f) => a + (f.size || 0), 0) : null;
   let storeCopies = scan.sourceType !== 'fsa';
@@ -195,14 +197,14 @@ async function handleScan(scan, mode) {
   copyChk.onchange = () => { storeCopies = copyChk.checked; };
   const tops = [...scan.dirs].filter(p => p && !p.includes('/')).sort(naturalCompare);
   const body = el('div', {},
-    el('p', { html: `<b>${escapeHtml(scan.rootName)}</b>: ${total} Bilddateien in ${scan.dirs.size - 1} Unterordnern${bytes != null ? ` (${formatBytes(bytes)})` : ''}. ${scan.notes?.length ? `${scan.notes.length} Kommentar-Datei${scan.notes.length > 1 ? 'en' : ''} (.txt) erkannt. ` : ''}${scan.ignored ? `${scan.ignored} andere Dateien werden ignoriert.` : ''}` }),
+    el('p', { html: `<b>${escapeHtml(scan.rootName)}</b>: ${total - pdfN} Bilddateien${pdfN ? ` und ${pdfN} PDF${pdfN > 1 ? 's' : ''} (jede Seite wird ein eigenes Bild)` : ''} in ${scan.dirs.size - 1} Unterordnern${bytes != null ? ` (${formatBytes(bytes)})` : ''}. ${scan.notes?.length ? `${scan.notes.length} Kommentar-Datei${scan.notes.length > 1 ? 'en' : ''} (.txt) erkannt. ` : ''}${scan.ignored ? `${scan.ignored} andere Dateien werden ignoriert.` : ''}` }),
     tops.length ? el('div', { class: 'scan-preview', html: tops.slice(0, 40).map(t => `<div>📁 ${escapeHtml(t)}</div>`).join('') + (tops.length > 40 ? `<div class="muted">… und ${tops.length - 40} weitere</div>` : '') }) : null,
     scan.sourceType !== 'fsa' ? el('label', { class: 'check' }, copyChk, ' Kopie der Bilder im Browser speichern (empfohlen – sonst muss der Ordner bei jedem Öffnen neu gewählt werden)') : el('p', { class: 'muted small', text: 'Die Bilder bleiben am Originalort und werden nicht kopiert. Die Anwendung merkt sich den Ordner.' }));
   const ok = await modal({ title: 'Projektordner analysiert', body, buttons: [{ label: 'Abbrechen', value: false, class: 'ghost' }, { label: 'Projekt anlegen', value: true, class: 'primary' }] });
   if (ok !== true) return;
   const prog = progressDialog('Projekt wird angelegt');
   try {
-    const id = await createProject(scan, x => prog.update(x.done / x.total, `Bilder werden gespeichert: ${x.done} / ${x.total}`), { storeCopies });
+    const id = await createProject(scan, x => prog.update(x.total ? x.done / x.total : null, x.message || `Bilder werden gespeichert: ${x.done} / ${x.total}`), { storeCopies });
     prog.close();
     await enterProject(id, true);
   } catch (e) { prog.close(); showError(e); }
@@ -396,7 +398,7 @@ function refreshAll(resetScroll) {
 }
 
 // ---------- Galerie-Daten ----------
-const EXT_GROUP = { jpg: 'jpg', jpeg: 'jpg', jpe: 'jpg', jfif: 'jpg', png: 'png', webp: 'webp', heic: 'heic', heif: 'heic', tif: 'tif', tiff: 'tif' };
+const EXT_GROUP = { jpg: 'jpg', jpeg: 'jpg', jpe: 'jpg', jfif: 'jpg', png: 'png', webp: 'webp', heic: 'heic', heif: 'heic', tif: 'tif', tiff: 'tif', pdf: 'pdf' };
 
 function computeGroups() {
   const m = state.model;

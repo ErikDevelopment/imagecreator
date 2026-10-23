@@ -41,6 +41,8 @@ function defaultReportSettings(name) {
 async function createProject(scan, onProgress, opts = {}) {
   const id = uid('prj_');
   const comments = await readNotes(scan);
+  const rawFiles = scan.files;                              // echte Dateien (für Kopien im Browser)
+  scan = await MB['pdf'].expandPdfs(scan, onProgress);    // jede PDF-Seite wird ein eigener Eintrag
   const { folders, images } = buildRecords(id, scan, state.rules, { autoSelect: state.settings.autoSelect, comments });
   const storeCopies = scan.sourceType !== 'fsa' && opts.storeCopies !== false;
   const project = {
@@ -54,10 +56,10 @@ async function createProject(scan, onProgress, opts = {}) {
   if (scan.handle) await db.put('handles', { projectId: id, handle: scan.handle });
   if (storeCopies) {
     let n = 0;
-    for (const f of scan.files) {
+    for (const f of rawFiles) {
       const file = await f.getFile();
       await db.put('files', { key: id + '|' + f.relPath, projectId: id, file });
-      if (++n % 20 === 0) onProgress?.({ phase: 'copy', done: n, total: scan.files.length });
+      if (++n % 20 === 0) onProgress?.({ phase: 'copy', done: n, total: rawFiles.length, message: `Bilder werden gespeichert: ${n} / ${rawFiles.length}` });
     }
   }
   await db.requestPersistence();
@@ -78,7 +80,7 @@ async function openProject(id, scan) {
   state.sessionFiles = keepSession || new Map();
   state.dirCache = new Map();
   state.handle = null; state.permission = 'none';
-  if (scan) for (const f of scan.files) state.sessionFiles.set(f.relPath, f.getFile);
+  if (scan) for (const f of scan.files) state.sessionFiles.set(f.fileRelPath || f.relPath, f.getFile);
   const h = await db.get('handles', id);
   if (h?.handle) { state.handle = h.handle; state.permission = await ensurePermission(h.handle, false); }
   rederive();
@@ -155,14 +157,15 @@ function filesAvailable() {
 }
 
 async function getFile(image) {
-  const sf = state.sessionFiles.get(image.relPath);
+  const path = image.fileRelPath || image.relPath;          // PDF-Seiten: echte PDF-Datei
+  const sf = state.sessionFiles.get(path);
   if (sf) return sf();
   if (state.handle) {
     if (state.permission !== 'granted') state.permission = await ensurePermission(state.handle, false);
-    if (state.permission === 'granted') return resolveFromHandle(state.handle, image.relPath, state.dirCache);
+    if (state.permission === 'granted') return resolveFromHandle(state.handle, path, state.dirCache);
   }
   if (state.project.storeCopies) {
-    const r = await db.get('files', state.project.id + '|' + image.relPath);
+    const r = await db.get('files', state.project.id + '|' + path);
     if (r?.file) return r.file;
   }
   const err = new Error('Originaldatei derzeit nicht erreichbar. Bitte Projektordner erneut verbinden.');
@@ -172,7 +175,7 @@ async function getFile(image) {
 
 // Wenn der Benutzer einen Ordner erneut auswählt (Fallback-Browser), Dateien dieser Sitzung zuordnen
 function attachSessionScan(scan) {
-  state.sessionFiles = new Map(scan.files.map(f => [f.relPath, f.getFile]));
+  state.sessionFiles = new Map(scan.files.map(f => [f.fileRelPath || f.relPath, f.getFile]));
   if (scan.handle) { state.handle = scan.handle; state.permission = 'granted'; db.put('handles', { projectId: state.project.id, handle: scan.handle }); }
   emit('permission');
 }
@@ -180,6 +183,8 @@ function attachSessionScan(scan) {
 // ---------- Neu einlesen ----------
 async function applyRescan(scan) {
   const p = state.project;
+  const rawFiles = scan.files;
+  scan = await MB['pdf'].expandPdfs(scan);
   const comments = await readNotes(scan);
   const res = mergeRescan(p.id, scan, state.rules, state.folders, state.images, { autoSelect: state.settings.autoSelect, comments });
   for (const im of res.images) { delete im.isNew; }
@@ -192,10 +197,10 @@ async function applyRescan(scan) {
   await db.putMany('folders', res.folders);
   await db.putMany('images', res.images);
   if (p.storeCopies) {
-    for (const f of scan.files) {
-      const old = state.images.find(i => i.relPath === f.relPath);
-      const now = res.images.find(i => i.relPath === f.relPath);
-      if (!old || now.status === 'geändert') await db.put('files', { key: p.id + '|' + f.relPath, projectId: p.id, file: await f.getFile() });
+    const oldPaths = new Set(state.images.map(i => i.fileRelPath || i.relPath));
+    const changedPaths = new Set(res.images.filter(i => i.status === 'geändert').map(i => i.fileRelPath || i.relPath));
+    for (const f of rawFiles) {
+      if (!oldPaths.has(f.relPath) || changedPaths.has(f.relPath)) await db.put('files', { key: p.id + '|' + f.relPath, projectId: p.id, file: await f.getFile() });
     }
   }
   p.scannedAt = Date.now();

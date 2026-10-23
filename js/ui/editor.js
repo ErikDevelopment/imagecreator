@@ -4,7 +4,7 @@
 const MB = (window.MB = window.MB || {});
 const { el, escapeHtml, clamp } = MB['util'];
 const { getFile } = MB['project'];
-const { decodeFile, renderEdited, emptyEdits, rotatedSize, drawAnnotations, annotationBounds, hasEdits } = MB['imaging'];
+const { decodeImageRecord, renderEdited, emptyEdits, rotatedSize, drawAnnotations, annotationBounds, hasEdits } = MB['imaging'];
 // Nicht-destruktiver Bildeditor. Originaldateien werden nie verändert – gespeichert wird nur eine Liste von Bearbeitungsschritten.
 
 const COLORS = ['#ff2d2d', '#ffb800', '#22c55e', '#2f80ff', '#ffffff', '#111111'];
@@ -24,7 +24,7 @@ async function openEditor(im, { onSave }) {
   const loading = el('div', { class: 'editor-loading', text: 'Bild wird geladen …' });
   const root = el('div', { class: 'editor' }, loading);
   document.body.append(root);
-  try { bmp = await decodeFile(await getFile(im), im.name); }
+  try { bmp = await decodeImageRecord(im, await getFile(im), im.pdfPage ? 2400 : 0); }
   catch (e) { loading.textContent = 'Bild kann nicht geöffnet werden: ' + e.message; setTimeout(() => root.remove(), 3500); return; }
 
   let edits = structuredClone(im.edits || emptyEdits());

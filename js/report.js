@@ -4,7 +4,7 @@
 const MB = (window.MB = window.MB || {});
 const { loadDocx } = MB['util'];
 const { getFile } = MB['project'];
-const { decodeFile, renderEdited, canvasToBlob, hasEdits, releaseSource } = MB['imaging'];
+const { decodeImageRecord, renderEdited, canvasToBlob, hasEdits, releaseSource } = MB['imaging'];
 // Erzeugung des Word-Montageberichts (.docx) mit der Bibliothek "docx".
 // Kapitelstruktur = Ordnerstruktur. Überschriften = Original-Ordnernamen (oder bewusst gesetzter Berichtstitel).
 
@@ -86,16 +86,17 @@ async function generateReport(model, settings, scopePath, onProgress) {
   async function prepOne(im) {
     try {
       const file = await getFile(im);
-      if (!hasEdits(im.edits)) {
+      if (!hasEdits(im.edits) && !im.pdfPage) {
         const r = await thumbs.renderForReport(file, maxDim, 0.86);
         if (r) return r;
       }
       // Hauptprogramm: bei Zuschnitt volle Auflösung, sonst direkt verkleinert dekodieren
-      const src = await decodeFile(file, im.name, im.edits?.crop ? 0 : maxDim);
+      const src = await decodeImageRecord(im, file, im.edits?.crop ? (im.pdfPage ? maxDim * 2 : 0) : maxDim);
       const c = renderEdited(src, im.edits, { maxDim, background: '#ffffff' });
       releaseSource(src);
+      const w = c.width, h = c.height;                       // Maße VOR dem Freigeben der Zeichenfläche merken
       const blob = await canvasToBlob(c, 'image/jpeg', 0.86);
-      return { data: new Uint8Array(await blob.arrayBuffer()), w: c.width, h: c.height };
+      return { data: new Uint8Array(await blob.arrayBuffer()), w, h };
     } catch (e) {
       warnings.push(`${im.relPath}: ${e.message}`);
       return null;
